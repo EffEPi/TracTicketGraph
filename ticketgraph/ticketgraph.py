@@ -46,10 +46,13 @@ class TicketGraphModule(Component):
         today = datetime.datetime.combine(datetime.date.today(), datetime.time(tzinfo=utc))
 
         days = int(req.args.get('days', 30))
+        stack_graph={};
+        stack_graph['stack_graph'] = bool(int(req.args.get('sg', 0)))
         # These are in microseconds; the data returned is in milliseconds
         # because it gets passed to flot
         ts_start = to_utimestamp(today - datetime.timedelta(days=days))
         ts_end = to_utimestamp(today) + 86400000000;
+        ts_utc_delta = math.ceil((datetime.datetime.utcnow()-datetime.datetime.now()).total_seconds())*1000;
 
         db = self.env.get_read_db()
         cursor = db.cursor()
@@ -57,49 +60,66 @@ class TicketGraphModule(Component):
         series = {
             'openedTickets': {},
             'closedTickets': {},
+            'workedTickets': {},
             'reopenedTickets': {},
             'openTickets': {}
         }
 
         # number of created tickets for the time period, grouped by day (ms)
-        cursor.execute('SELECT COUNT(DISTINCT id), FLOOR(time / 86400000000) * 86400000 ' \
+#        cursor.execute('SELECT COUNT(DISTINCT id), FLOOR(time / 86400000000) * 86400000 ' \
+        cursor.execute('SELECT COUNT(DISTINCT id),( UNIX_TIMESTAMP(DATE(FROM_UNIXTIME(time/1000000)))*1000) ' \
                        'AS date FROM ticket WHERE time BETWEEN %s AND %s ' \
                        'GROUP BY date ORDER BY date ASC', (ts_start, ts_end))
         for count, timestamp in cursor:
             series['openedTickets'][float(timestamp)] = float(count)
 
         # number of reopened tickets for the time period, grouped by day (ms)
-        cursor.execute('SELECT COUNT(DISTINCT ticket), FLOOR(time / 86400000000) * 86400000 ' \
+#        cursor.execute('SELECT COUNT(DISTINCT ticket), FLOOR(time / 86400000000) * 86400000 ' \
+        cursor.execute('SELECT COUNT(DISTINCT ticket), UNIX_TIMESTAMP(DATE(FROM_UNIXTIME(time/1000000)))*1000 ' \
                        'AS date FROM ticket_change WHERE field = \'status\' AND newvalue = \'reopened\' ' \
                        'AND time BETWEEN %s AND %s ' \
                        'GROUP BY date ORDER BY date ASC', (ts_start, ts_end))
         for count, timestamp in cursor:
             series['reopenedTickets'][float(timestamp)] = float(count)
 
+        # number of worked tickets for the time period, grouped by day (ms)
+        cursor.execute('SELECT COUNT(DISTINCT ticket), UNIX_TIMESTAMP(DATE(FROM_UNIXTIME(time/1000000)))*1000 ' \
+                       'AS date FROM ticket_change WHERE  ' \
+                       'time BETWEEN %s AND %s ' \
+                       'GROUP BY date ORDER BY date ASC', (ts_start, ts_end))
+        for count, timestamp in cursor:
+            series['workedTickets'][float(timestamp)] = float((1 if stack_graph['stack_graph'] else -1)*count)
+
+
         # number of closed tickets for the time period, grouped by day (ms)
-        cursor.execute('SELECT COUNT(DISTINCT ticket), FLOOR(time / 86400000000) * 86400000 ' \
+#        cursor.execute('SELECT COUNT(DISTINCT ticket), FLOOR(time / 86400000000) * 86400000 ' \
+        cursor.execute('SELECT COUNT(DISTINCT ticket), UNIX_TIMESTAMP(DATE(FROM_UNIXTIME(time/1000000)))*1000 ' \
                        'AS date FROM ticket_change WHERE field = \'status\' AND newvalue = \'closed\' ' \
                        'AND time BETWEEN %s AND %s ' \
                        'GROUP BY date ORDER BY date ASC', (ts_start, ts_end))
         for count, timestamp in cursor:
-            series['closedTickets'][float(timestamp)] = float(count)
+            series['closedTickets'][float(timestamp)] = float((1 if stack_graph['stack_graph'] else -1)*count)
 
         # number of open tickets at the end of the reporting period
         cursor.execute('SELECT COUNT(*) FROM ticket WHERE status <> \'closed\'')
 
         open_tickets = cursor.fetchone()[0]
-        open_ts = math.floor(ts_end / 1000)
+        open_ts = math.floor((ts_end) / 1000)+ts_utc_delta
 
         while open_ts >= math.floor(ts_start / 1000):
             if open_ts in series['closedTickets']:
-                open_tickets += series['closedTickets'][open_ts]
+                open_tickets += (1 if stack_graph['stack_graph'] else -1)*series['closedTickets'][open_ts]
             if open_ts in series['openedTickets']:
                 open_tickets -= series['openedTickets'][open_ts]
             if open_ts in series['reopenedTickets']:
                 open_tickets -= series['reopenedTickets'][open_ts]
 
-            series['openTickets'][open_ts] = open_tickets
-            open_ts -= 86400000
+            series['openTickets'][open_ts-86400000] = open_tickets
+
+            new_ts_utc_delta = math.ceil((datetime.datetime.utcfromtimestamp(open_ts/1000)-datetime.datetime.fromtimestamp(open_ts/1000)).total_seconds())*1000;
+
+            open_ts -= 86400000 + ts_utc_delta - new_ts_utc_delta
+            ts_utc_delta = new_ts_utc_delta
 
         data = {}
         for i in series:
@@ -107,10 +127,15 @@ class TicketGraphModule(Component):
             keys.sort()
             data[i] = [ (k, series[i][k]) for k in keys ]
 
+        data['openTickets_ts'] = open_ts-86400000
+        data['openTickets_tickets'] = open_tickets
+        data['openTickets_days'] = days
+
         add_script(req, 'ticketgraph/jquery.flot.min.js')
+#        add_script(req, 'http://people.iola.dk/olau/flot/jquery.flot.js')
         add_script(req, 'ticketgraph/jquery.flot.stack.min.js')
         add_script(req, 'ticketgraph/ticketgraph.js')
         add_script_data(req, data)
+        add_script_data(req, stack_graph)
 
-        return 'ticketgraph.html', { 'days': days }, None
-
+        return 'ticketgraph.html', { 'days': days, 'sg': stack_graph['stack_graph'] }, None
