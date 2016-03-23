@@ -8,10 +8,10 @@ setup(
     packages = ['ticketgraph'],
     package_data = { 'ticketgraph' : [ 'htdocs/*.*', 'templates/*.*' ] },
 
-    author = 'Fabrizio Parrella',
-    author_email = 'fabrizio@bibivu.com',
+    author = 'Colin Snover',
+    author_email = 'tracplugins@zetafleet.com',
     description = 'Graphs Trac tickets over time',
-    long_description = 'A Trac plugin that displays a visual graph of ticket changes over time, based on Colin Snover version.',
+    long_description = 'A Trac plugin that displays a visual graph of ticket changes over time, modified by Fabrizio Parrella (fabrizio@bibivu.com).',
     license = 'MIT',
     keywords = 'trac plugin ticket statistics graph',
     classifiers = [
