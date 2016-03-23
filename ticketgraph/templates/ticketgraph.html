@@ -21,6 +21,8 @@
                                         <select name="days">
                                                 <option py:for="option in [30,60,90,180,365]" value="$option" selected="${option == days or None}">$option</option>
                                         </select>
+                                        User:
+                                        <select name="owner" id="owner"></select>
                                         <label><input type="checkbox" name="sg" id="graph-sg" value="1" checked="${sg or None}" />Stack Graph</label>
                                         <input type="submit" value="Graph" />
                                 </form>
