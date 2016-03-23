@@ -1,6 +1,6 @@
-var plot = null;
+var tracGraphPlot = null;
 var line_tick = 86400000;
-if(typeof stack_graph!=='undefined'&&stack_graph==true){
+if(typeof stack_graph !== 'undefined' && stack_graph == true){
         line_tick /= 3.5;
         for(var k in closedTickets){
                 closedTickets[k][0] += line_tick+5000000;
@@ -10,10 +10,17 @@ if(typeof stack_graph!=='undefined'&&stack_graph==true){
         }
 }
 $(document).ready(function() {
+        $('#owner')[0].options.add(new Option("All","%"));
+        for(var i in users){
+                if(users[i][1]==""||users[i][1]==null){
+                        users[i][1] = users[i][0];
+                }
+                $('#owner')[0].options.add(new Option(users[i][1],users[i][0]));
+        }
+        $('#owner').val(owner);
         var graph = $('#placeholder').width(800).height(500),
         barSettings = { show: true, barWidth: line_tick, align: 'center', stack: false};
-        plot = $.plot($('#placeholder'),
-        [
+        var data = [
                 {
                         data: openedTickets,
                         label: 'New tickets',
@@ -38,8 +45,10 @@ $(document).ready(function() {
                         label: 'Worked tickets',
                         color: '#45458b',
                         idx: 3
-                },
-                {
+                }
+        ];
+        if(owner==="" || owner==="%"){
+                data.push({
                         data: openTickets,
                         label: 'Open tickets',
                         yaxis: 2,
@@ -48,9 +57,9 @@ $(document).ready(function() {
                         shadowSize: 0,
                         color: '#333',
                         idx: 4
-                }
-        ],
-        {
+                });
+        }
+        var options = {
                 series:{
                         bars: barSettings
                 },
@@ -65,7 +74,8 @@ $(document).ready(function() {
                                 return '<a href="#" onClick="tracGraphTogglePlot('+series.idx+'); return false;">'+label+'</a>';
                         }
                 }
-        });
+        };
+        tracGraphPlot = $.plot($('#placeholder'), data, options);
 
         $("<div id='tooltip'></div>").css({
                         position: "absolute",
@@ -88,7 +98,6 @@ $(document).ready(function() {
                         $("#tooltip").hide();
                 }
         });
-//      setTimeout(function(){tracGraphTogglePlot(2);},500);
 });
 function tracGraphTimeConverter(timestamp){
         var a = new Date(timestamp);
@@ -96,14 +105,11 @@ function tracGraphTimeConverter(timestamp){
         var year = a.getFullYear();
         var month = months[a.getMonth()];
         var date = a.getDate();
-//      var hour = a.getHours();
-//      var min = a.getMinutes();
-//      var sec = a.getSeconds();
         var time = month + ' ' + date + ', ' + year;
         return time;
 }
 function tracGraphTogglePlot(seriesIdx){
-        var someData = plot.getData();
+        var someData = tracGraphPlot.getData();
         if(typeof someData[seriesIdx].data_old === 'undefined'){
                 someData[seriesIdx].data_old=someData[seriesIdx].data;
                 someData[seriesIdx].data=[];
@@ -111,7 +117,6 @@ function tracGraphTogglePlot(seriesIdx){
                 someData[seriesIdx].data=someData[seriesIdx].data_old;
                 delete(someData[seriesIdx].data_old);
         }
-        plot.setData(someData);
-//      plot.setupGrid();
-        plot.draw();
+        tracGraphPlot.setData(someData);
+        tracGraphPlot.draw();
 }
