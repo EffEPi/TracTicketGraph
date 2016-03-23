@@ -1,15 +1,15 @@
 var tracGraphPlot = null;
-var line_tick = 86400000;
-if(typeof stack_graph !== 'undefined' && stack_graph == true){
-        line_tick /= 3.5;
-        for(var k in closedTickets){
-                closedTickets[k][0] += line_tick+5000000;
-        }
-        for(var k in workedTickets){
-                workedTickets[k][0] += (line_tick+5000000)*2;
-        }
-}
 $(document).ready(function() {
+        var lineTick = 86400000;
+        if(typeof stack_graph !== 'undefined' && stack_graph == true){
+                lineTick /= 3.5;
+                for(var k in closedTickets){
+                        closedTickets[k][0] += lineTick+5000000;
+                }
+                for(var k in workedTickets){
+                        workedTickets[k][0] += (lineTick+5000000)*2;
+                }
+        }
         $('#owner')[0].options.add(new Option("All","%"));
         for(var i in users){
                 if(users[i][1]==""||users[i][1]==null){
@@ -18,8 +18,7 @@ $(document).ready(function() {
                 $('#owner')[0].options.add(new Option(users[i][1],users[i][0]));
         }
         $('#owner').val(owner);
-        var graph = $('#placeholder').width(800).height(500),
-        barSettings = { show: true, barWidth: line_tick, align: 'center', stack: false};
+        var graph = $('#placeholder').width(800).height(500);
         var data = [
                 {
                         data: openedTickets,
@@ -61,7 +60,7 @@ $(document).ready(function() {
         }
         var options = {
                 series:{
-                        bars: barSettings
+                        bars: { show: true, barWidth: lineTick, align: 'center', stack: false}
                 },
                 xaxis: { mode: 'time', minTickSize: [1, "day"] },
                 grid: { hoverable: true },
